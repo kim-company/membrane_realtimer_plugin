@@ -2,12 +2,11 @@ defmodule Membrane.RealtimerTest do
   use ExUnit.Case
 
   import Membrane.Testing.Assertions
+  import Membrane.ChildrenSpec
 
   alias Membrane.{Buffer, Realtimer, Testing, Time}
 
   test "Limits playback speed to realtime" do
-    import Membrane.ChildrenSpec
-
     buffers = [
       %Buffer{pts: 0, payload: 0},
       %Buffer{pts: Time.milliseconds(100), payload: 1}
@@ -30,8 +29,6 @@ defmodule Membrane.RealtimerTest do
   end
 
   test "Start following the time of the first buffer" do
-    import Membrane.ChildrenSpec
-
     buffers = [
       %Buffer{pts: Time.milliseconds(100), payload: 0}
     ]
@@ -43,6 +40,24 @@ defmodule Membrane.RealtimerTest do
     ]
 
     pipeline = Testing.Pipeline.start_link_supervised!(structure: structure)
+    assert_sink_buffer(pipeline, :sink, %Buffer{payload: 0}, 20)
+    assert_end_of_stream(pipeline, :sink)
+    Testing.Pipeline.terminate(pipeline, blocking?: true)
+  end
+
+  test "Respects configured delay" do
+    buffers = [
+      %Buffer{pts: Time.milliseconds(100), payload: 0}
+    ]
+
+    structure = [
+      child(:src, %Testing.Source{output: Testing.Source.output_from_buffers(buffers)})
+      |> child(:realtimer, %Realtimer{delay: Time.milliseconds(100)})
+      |> child(:sink, Testing.Sink)
+    ]
+
+    pipeline = Testing.Pipeline.start_link_supervised!(structure: structure)
+    refute_sink_buffer(pipeline, :sink, _buffer, 90)
     assert_sink_buffer(pipeline, :sink, %Buffer{payload: 0}, 20)
     assert_end_of_stream(pipeline, :sink)
     Testing.Pipeline.terminate(pipeline, blocking?: true)
