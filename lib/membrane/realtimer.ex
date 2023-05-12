@@ -35,13 +35,13 @@ defmodule Membrane.Realtimer do
   def handle_process(:input, buffer, ctx, %{previous_timestamp: nil} = state) do
     handle_process(:input, buffer, ctx, %{
       state
-      | previous_timestamp: Buffer.get_dts_or_pts(buffer) || 0
+      | previous_timestamp: (Buffer.get_dts_or_pts(buffer) || 0) - state.delay
     })
   end
 
   def handle_process(:input, buffer, _ctx, state) do
     use Ratio
-    interval = Buffer.get_dts_or_pts(buffer) - state.previous_timestamp + state.delay
+    interval = Buffer.get_dts_or_pts(buffer) - state.previous_timestamp
 
     state = %{
       state
@@ -93,7 +93,11 @@ defmodule Membrane.Realtimer do
   end
 
   @impl true
-  def handle_parent_notification({:delay, delay}, _ctx, state) do
-    {[], %{state | delay: delay}}
+  def handle_parent_notification(
+        {:delay, delay},
+        _ctx,
+        %{previous_timestamp: previous_timestamp} = state
+      ) do
+    {[], %{state | previous_timestamp: previous_timestamp - delay}}
   end
 end

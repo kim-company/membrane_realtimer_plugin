@@ -47,7 +47,8 @@ defmodule Membrane.RealtimerTest do
 
   test "Respects configured delay" do
     buffers = [
-      %Buffer{pts: Time.milliseconds(100), payload: 0}
+      %Buffer{pts: Time.milliseconds(0), payload: 0},
+      %Buffer{pts: Time.milliseconds(100), payload: 1}
     ]
 
     structure = [
@@ -59,6 +60,10 @@ defmodule Membrane.RealtimerTest do
     pipeline = Testing.Pipeline.start_link_supervised!(structure: structure)
     refute_sink_buffer(pipeline, :sink, _buffer, 90)
     assert_sink_buffer(pipeline, :sink, %Buffer{payload: 0}, 20)
+    # The delay between buffers remains the same but everything is shifted by
+    # the specified amount of time, in this case the initial 100ms.
+    refute_sink_buffer(pipeline, :sink, _buffer, 90)
+    assert_sink_buffer(pipeline, :sink, %Buffer{payload: 1}, 20)
     assert_end_of_stream(pipeline, :sink)
     Testing.Pipeline.terminate(pipeline, blocking?: true)
   end
