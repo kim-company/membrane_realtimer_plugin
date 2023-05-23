@@ -26,17 +26,20 @@ defmodule Membrane.Realtimer do
 
   @impl true
   def handle_playing(_ctx, state) do
-    {[start_timer: {:timer, :no_interval}, demand: {:input, 1}], state}
+    {[demand: {:input, 1}], state}
   end
 
   # TODO: remove when https://github.com/membraneframework/membrane_core/pull/502 is merged and released
   @dialyzer {:no_behaviours, {:handle_process, 4}}
   @impl true
   def handle_process(:input, buffer, ctx, %{previous_timestamp: nil} = state) do
-    handle_process(:input, buffer, ctx, %{
-      state
-      | previous_timestamp: (Buffer.get_dts_or_pts(buffer) || 0) - state.delay
-    })
+    {actions, state} =
+      handle_process(:input, buffer, ctx, %{
+        state
+        | previous_timestamp: (Buffer.get_dts_or_pts(buffer) || 0) - state.delay
+      })
+
+    {[{:start_timer, {:timer, :no_interval}} | actions], state}
   end
 
   def handle_process(:input, buffer, _ctx, state) do
@@ -102,7 +105,8 @@ defmodule Membrane.Realtimer do
       state
       |> update_in([:previous_timestamp], fn
         nil -> nil
-        previous -> previous - delay
+        # undo the previously applied delay before adding the new one
+        previous -> previous + state.delay - delay
       end)
       |> put_in([:delay], delay)
 
