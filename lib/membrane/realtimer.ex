@@ -96,8 +96,16 @@ defmodule Membrane.Realtimer do
   def handle_parent_notification(
         {:delay, delay},
         _ctx,
-        %{previous_timestamp: previous_timestamp} = state
+        state
       ) do
-    {[], %{state | previous_timestamp: previous_timestamp - delay}}
+    state =
+      state
+      |> update_in([:previous_timestamp], fn
+        nil -> nil
+        previous -> previous - delay
+      end)
+      |> put_in([:delay], delay)
+
+    {[], state}
   end
 end
